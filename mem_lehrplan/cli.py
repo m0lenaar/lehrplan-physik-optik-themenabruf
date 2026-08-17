@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Nur die vorhandenen Schulfach-Bezeichnungen ausgeben und beenden",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Fortschritt protokollieren")
+    parser.add_argument("--debug", action="store_true", help="Setze Log-Level auf DEBUG")
     return parser
 
 
@@ -55,7 +56,7 @@ def _print_faecher(client: SparqlClient, bundesland: str | None) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(
-        level=logging.INFO if args.verbose else logging.WARNING,
+        level=logging.DEBUG if args.debug else (logging.INFO if args.verbose else logging.WARNING),
         format="%(levelname)s %(message)s",
     )
     client = SparqlClient(args.endpoint)

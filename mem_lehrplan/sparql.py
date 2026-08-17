@@ -46,7 +46,7 @@ class SparqlClient:
                 "User-Agent": "mem-optik/1.0 (+https://github.com/FWU-DE/mem-mcp)",
             },
         )
-        logger.debug("POST %s (%d chars of query)", self.endpoint, len(query))
+        logger.debug("POST %s (%d chars):\n%s", self.endpoint, len(query), query)
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 document = json.load(response)
