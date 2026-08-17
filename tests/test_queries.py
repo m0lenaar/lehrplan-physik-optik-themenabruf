@@ -54,6 +54,16 @@ class LehrplanQueryTest(unittest.TestCase):
     def test_limit_is_coerced_to_int(self):
         self.assertIn("LIMIT 5", queries.lehrplaene("Physik", limit=5))
 
+    def test_all_lehrplaene_walks_subclasses_without_subject_filter(self):
+        query = queries.alle_lehrplaene()
+        self.assertIn("BIND(lp:LP_0000438 AS ?lpClass)", query)
+        self.assertIn("?lpClass rdfs:subClassOf lp:LP_0000438", query)
+        self.assertNotIn("?fach rdfs:label ?fachLabel", query)
+
+    def test_all_lehrplaene_can_filter_by_bundesland(self):
+        self.assertNotIn("LP_0000029", queries.alle_lehrplaene())
+        self.assertIn("LP_0000029", queries.alle_lehrplaene("Sachsen"))
+
 
 class NodeQueryTest(unittest.TestCase):
     def test_single_has_part_hop_and_keyword_alternation(self):
@@ -125,6 +135,7 @@ class NoTransitivePathTest(unittest.TestCase):
     """
 
     ALL = {
+        "alle_lehrplaene": queries.alle_lehrplaene("Sachsen", limit=5),
         "lehrplaene": queries.lehrplaene("Physik", "Sachsen", limit=5),
         "descriptive_attributes": queries.descriptive_attributes(["https://x.org/a"]),
         "matching_nodes": queries.matching_nodes("https://x.org/a", ["Optik"]),

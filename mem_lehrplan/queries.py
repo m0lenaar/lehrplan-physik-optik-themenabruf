@@ -148,6 +148,36 @@ WHERE {{
 ORDER BY ?lpLabel{tail}"""
 
 
+def alle_lehrplaene(bundesland_keyword: str | None = None, limit: int | None = None) -> str:
+    """All curricula, optionally filtered by Bundesland.
+
+    Uses the same bounded walk from LP_0000438 as :func:`lehrplaene`, because
+    the endpoint does not infer membership in the abstract Lehrplan class.
+    """
+    clauses = [
+        _subclasses_of_constant("lpClass", CLASS_LEHRPLAN, MAX_LEHRPLAN_SUBCLASS_DEPTH),
+        "?lp rdf:type ?lpClass ;",
+        "    rdfs:label ?lpLabel .",
+        'FILTER(LANG(?lpLabel) IN ("de", ""))',
+    ]
+    if bundesland_keyword:
+        land = validate_keyword(bundesland_keyword).lower()
+        clauses += [
+            f"?lp lp:{DESCRIPTIVE_PROPERTIES['bundesland']} ?bl .",
+            "?bl rdfs:label ?blLabel .",
+            f'FILTER(CONTAINS(LCASE(STR(?blLabel)), "{land}"))',
+        ]
+    body = "\n  ".join(clauses)
+    tail = f"\nLIMIT {int(limit)}" if limit else ""
+    return f"""{PREFIXES}
+
+SELECT DISTINCT ?lp ?lpLabel
+WHERE {{
+  {body}
+}}
+ORDER BY ?lpLabel{tail}"""
+
+
 def descriptive_attributes(subject_uris: Sequence[str]) -> str:
     """Context and level attributes for any set of resources.
 

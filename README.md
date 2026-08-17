@@ -28,6 +28,20 @@ python -m mem_lehrplan.cli --list-faecher --bundesland Bayern
 Endpoint per `--endpoint` oder `MEM_SPARQL_ENDPOINT`; Default ist
 `https://sparql.mem.edufeed.org/sparql/`.
 
+### Faecheruebersicht
+
+Eine hierarchische Liste aller im Store vorhandenen Faecher mit Bundesland,
+Schulform und Klassenstufen erzeugt das separate Skript:
+
+```bash
+python3 faecher_uebersicht.py
+python3 faecher_uebersicht.py --bundesland Sachsen --limit 50 -o faecher.txt
+```
+
+Die Ausgabe ist nach `Fach -> Bundesland -> Schulform -> Klassenstufe`
+geordnet. Fehlende Klassenstufen werden, soweit moeglich, aus dem
+Lehrplantitel abgeleitet.
+
 ## Gegliederte Uebersicht
 
 ```bash
