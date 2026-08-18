@@ -43,7 +43,7 @@ RESULT = {
     "abgerufen_am": "2026-07-28T13:00:00+00:00",
     "endpoint": "https://sparql.example.org/sparql/",
     "filter": {"fach": "physik", "bundesland": None, "stichwoerter": ["Optik", "Licht", "Strahl"]},
-    "anzahl": {"lehrplaene": 3, "treffer": 5},
+    "anzahl": {"lehrplaene": 4, "treffer": 6},
     "lehrplaene": [
         _lehrplan(
             "Gymnasium Physik",
@@ -60,6 +60,18 @@ RESULT = {
             [_node("Licht sowohl als Welle als auch als Teilchen verstehen", ["kompetenz"], None, ["Lernbereich 7"])],
         ),
         _lehrplan("Physik 7-9/10", "Rheinland-Pfalz", [_node("Strahlengang am Spiegel", ["kompetenz"])]),
+        _lehrplan(
+            "Sachunterricht 1-4",
+            "Rheinland-Pfalz",
+            [
+                _node(
+                    "Erlebte bzw. arrangierte Phaenomene gezielt beobachten (Licht und Schatten)",
+                    ["kompetenz"],
+                    {"jahrgangsstufe": [{"uri": "https://j/1", "label": "Klassenstufe 1"}]},
+                    ["Perspektive Natur"],
+                )
+            ],
+        ),
     ],
     "diagnostik": {"lehrplan_praedikate": [], "klassen_ohne_rolle": []},
 }
@@ -150,7 +162,7 @@ class TreeAndRenderTest(unittest.TestCase):
 
     def test_noise_is_excluded_by_default(self):
         self.assertEqual(self.stats["ausgeschlossen"], 1)
-        self.assertEqual(self.stats["aufgenommen"], 4)
+        self.assertEqual(self.stats["aufgenommen"], 5)
         self.assertNotIn("Wahlpflichtlernbereich", self.text)
 
     def test_noise_can_be_included(self):
@@ -161,6 +173,12 @@ class TreeAndRenderTest(unittest.TestCase):
     def test_levels_are_used_as_top_grouping(self):
         self.assertIn(ue.SEK_I, self.tree)
         self.assertIn(ue.SEK_II, self.tree)
+        self.assertIn(ue.PRIMAR, self.tree)
+
+    def test_grundschule_sachunterricht_appears_in_primarstufe_section(self):
+        laender = self.tree[ue.PRIMAR]
+        self.assertIn("Rheinland-Pfalz", laender)
+        self.assertIn("Licht und Schatten", self.text)
 
     def test_sek_ii_section_holds_the_oberstufe_curriculum(self):
         laender = self.tree[ue.SEK_II]

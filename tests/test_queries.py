@@ -65,6 +65,41 @@ class LehrplanQueryTest(unittest.TestCase):
         self.assertIn("LP_0000029", queries.alle_lehrplaene("Sachsen"))
 
 
+class LehrplanByFachQueryTest(unittest.TestCase):
+    def test_matches_schulfach_predicate_directly_without_class_walk(self):
+        query = queries.lehrplaene_by_fach(["physik", "sachunterricht"])
+        self.assertIn("lp:LP_0000537 ?fach", query)
+        self.assertNotIn("rdfs:subClassOf", query)
+        self.assertNotIn("LP_0000438", query)
+
+    def test_multiple_subject_keywords_are_or_ed_with_case_insensitive_contains(self):
+        query = queries.lehrplaene_by_fach(["Physik", "Sachunterricht"])
+        self.assertIn('CONTAINS(LCASE(STR(?fachLabel)), "physik")', query)
+        self.assertIn('CONTAINS(LCASE(STR(?fachLabel)), "sachunterricht")', query)
+        self.assertIn("||", query)
+
+    def test_bundesland_filter_is_optional(self):
+        self.assertNotIn("LP_0000029", queries.lehrplaene_by_fach(["physik"]))
+        self.assertIn("LP_0000029", queries.lehrplaene_by_fach(["physik"], ["bayern", "rheinland-pfalz"]))
+
+    def test_multiple_bundesland_keywords_are_or_ed(self):
+        query = queries.lehrplaene_by_fach(["physik"], ["Bayern", "Rheinland-Pfalz"])
+        self.assertIn('CONTAINS(LCASE(STR(?blLabel)), "bayern")', query)
+        self.assertIn('CONTAINS(LCASE(STR(?blLabel)), "rheinland-pfalz")', query)
+
+    def test_limit_is_coerced_to_int(self):
+        self.assertIn("LIMIT 3", queries.lehrplaene_by_fach(["physik"], limit=3))
+
+    def test_empty_fach_list_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            queries.lehrplaene_by_fach([])
+
+    def test_schulfaecher_accepts_multiple_bundeslaender(self):
+        query = queries.schulfaecher(["bayern", "rheinland-pfalz"])
+        self.assertIn('CONTAINS(LCASE(STR(?blLabel)), "bayern")', query)
+        self.assertIn("||", query)
+
+
 class NodeQueryTest(unittest.TestCase):
     def test_single_has_part_hop_and_keyword_alternation(self):
         query = queries.matching_nodes("https://lp-sachsen.org/resource/522", ["Optik", "Linse"])
@@ -137,6 +172,7 @@ class NoTransitivePathTest(unittest.TestCase):
     ALL = {
         "alle_lehrplaene": queries.alle_lehrplaene("Sachsen", limit=5),
         "lehrplaene": queries.lehrplaene("Physik", "Sachsen", limit=5),
+        "lehrplaene_by_fach": queries.lehrplaene_by_fach(["physik", "sachunterricht"], ["Bayern"], limit=5),
         "descriptive_attributes": queries.descriptive_attributes(["https://x.org/a"]),
         "matching_nodes": queries.matching_nodes("https://x.org/a", ["Optik"]),
         "direct_parents": queries.direct_parents(["https://x.org/a"]),

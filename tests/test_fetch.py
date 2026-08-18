@@ -52,6 +52,17 @@ class FakeClient:
             return [row for row in rows if row["s"] in query]
         if "SELECT DISTINCT ?p ?pLabel" in query:
             return [{"p": ONTO + "LP_0000029", "pLabel": "von Bundesland"}]
+        if "CONTAINS(LCASE(STR(?fachLabel))" in query and "sachunterricht" in query:
+            return [
+                {"lp": LP, "lpLabel": "Physik Oberschule (SN)", "fachLabel": "Physik"},
+                {
+                    "lp": "https://lp-rp.org/resource/1",
+                    "lpLabel": "Sachunterricht 1-4 (RP)",
+                    "fachLabel": "Sachunterricht",
+                },
+            ]
+        if "CONTAINS(LCASE(STR(?fachLabel))" in query:
+            return [{"lp": LP, "lpLabel": "Physik Oberschule (SN)", "fachLabel": "Physik"}]
         return [{"lp": LP, "lpLabel": "Physik Oberschule (SN)", "fachLabel": "Physik"}]
 
 
@@ -103,6 +114,19 @@ class HarvestTest(unittest.TestCase):
         result = harvest(client, fach="physik", stichwoerter=["Optik"])
         self.assertEqual(result["anzahl"]["lehrplaene"], 0)
         self.assertEqual(len(client.queries), 1)
+
+    def test_multiple_subjects_yield_combined_curricula(self):
+        result = harvest(
+            self.client, fach=["physik", "sachunterricht"], stichwoerter=["Optik", "Licht"]
+        )
+        labels = {entry["label"] for entry in result["lehrplaene"]}
+        self.assertIn("Physik Oberschule (SN)", labels)
+        self.assertIn("Sachunterricht 1-4 (RP)", labels)
+        self.assertEqual(result["filter"]["fach"], ["physik", "sachunterricht"])
+
+    def test_single_string_fach_is_backwards_compatible(self):
+        result = harvest(self.client, fach="physik", stichwoerter=["Optik"])
+        self.assertEqual(result["filter"]["fach"], ["physik"])
 
 
 class FlattenTest(unittest.TestCase):

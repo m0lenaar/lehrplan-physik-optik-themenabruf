@@ -148,19 +148,39 @@ def _assemble_node(node: dict, index, attributes, parents, lehrplan_stufen) -> d
     }
 
 
+def _as_list(value: str | list[str] | None) -> list[str]:
+    """Normalise a single string or a list of strings to a list."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
 def harvest(
     client: SparqlClient,
-    fach: str,
+    fach: str | list[str],
     stichwoerter: list[str],
-    bundesland: str | None = None,
+    bundesland: str | list[str] | None = None,
     limit: int | None = None,
 ) -> dict:
-    """Collect all matching curricula with their topic areas and competencies."""
-    lehrplan_rows = client.select(queries.lehrplaene(fach, bundesland, limit))
+    """Collect all matching curricula with their topic areas and competencies.
+
+    ``fach`` and ``bundesland`` accept a single keyword or a list of keywords;
+    a curriculum is selected when its Schulfach label matches any ``fach``
+    keyword. The Lehrplan match uses the direct ``LP_0000537`` Schulfach
+    predicate (see :func:`mem_lehrplan.queries.lehrplaene_by_fach`), which also
+    reaches Lehrpläne below the bounded class walk -- e.g. Bayern.
+    """
+    fach_list = _as_list(fach)
+    if not fach_list:
+        raise queries.ValidationError("at least one fach keyword is required")
+    bundesland_list = _as_list(bundesland)
+    lehrplan_rows = client.select(queries.lehrplaene_by_fach(fach_list, bundesland_list, limit))
     lehrplaene = collect_labelled(lehrplan_rows, "lp", "lpLabel")
-    logger.info("%d Lehrplan(e) fuer Fach-Stichwort %r", len(lehrplaene), fach)
+    logger.info("%d Lehrplan(e) fuer Fach-Stichwort(e) %r", len(lehrplaene), fach_list)
     if not lehrplaene:
-        return _result(fach, stichwoerter, bundesland, client.endpoint, [], {})
+        return _result(fach_list, stichwoerter, bundesland_list, client.endpoint, [], {})
 
     lehrplan_uris = [entry["uri"] for entry in lehrplaene]
     lehrplan_attributes = fetch_attributes(client, lehrplan_uris)
@@ -206,7 +226,7 @@ def harvest(
             {info.uri for info in index.values() if not info.rollen}
         ),
     }
-    return _result(fach, stichwoerter, bundesland, client.endpoint, records, diagnostics)
+    return _result(fach_list, stichwoerter, bundesland_list, client.endpoint, records, diagnostics)
 
 
 def _result(fach, stichwoerter, bundesland, endpoint, records, diagnostics) -> dict:

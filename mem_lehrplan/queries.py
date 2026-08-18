@@ -148,6 +148,57 @@ WHERE {{
 ORDER BY ?lpLabel{tail}"""
 
 
+def _contains_any(label_var: str, keywords: Sequence[str]) -> str:
+    """Case-insensitive CONTAINS keywords, OR-ed, as a single FILTER.
+
+    Returns a ``FILTER`` expression OR-ing one CONTAINS per keyword. The whole
+    expression must be wrapped in ``FILTER(...)``: Virtuoso rejects a bare
+    boolean ``X || Y`` in a WHERE clause as a syntax error, while a single bare
+    ``CONTAINS`` happens to be accepted. ``label_var`` must already be
+    lowercased by the caller; the keywords are lowercased and validated here.
+    """
+    disjunction = " || ".join(f'CONTAINS({label_var}, "{validate_keyword(word).lower()}")' for word in keywords)
+    return f"FILTER({disjunction})"
+
+
+def lehrplaene_by_fach(
+    fach_keywords: Sequence[str],
+    bundesland_keywords: Sequence[str] | None = None,
+    limit: int | None = None,
+) -> str:
+    """Curricula whose Schulfach label matches any of ``fach_keywords``.
+
+    Unlike :func:`lehrplaene`, this matches the asserted ``LP_0000537``
+    (hat Schulfach) directly instead of walking ``LP_0000438``. Several state
+    Lehrpläne -- most notably Bayern -- sit deeper below the abstract Lehrplan
+    class than the bounded walk in :func:`lehrplaene` reaches, so the direct
+    match finds them all. ``SELECT DISTINCT`` deduplicates across the keyword
+    alternatives, so a multi-subject harvest needs no client-side merge.
+    """
+    if not fach_keywords:
+        raise ValidationError("at least one fach keyword is required")
+    clauses = [
+        "?lp rdfs:label ?lpLabel ;",
+        f"    lp:{DESCRIPTIVE_PROPERTIES['schulfach']} ?fach .",
+        "?fach rdfs:label ?fachLabel .",
+        _contains_any("LCASE(STR(?fachLabel))", fach_keywords),
+        'FILTER(LANG(?lpLabel) IN ("de", ""))',
+    ]
+    if bundesland_keywords:
+        clauses.append("?lp lp:{b} ?bl .".format(b=DESCRIPTIVE_PROPERTIES['bundesland']))
+        clauses.append("?bl rdfs:label ?blLabel .")
+        clauses.append(_contains_any("LCASE(STR(?blLabel))", bundesland_keywords))
+    body = "\n  ".join(clauses)
+    tail = f"\nLIMIT {int(limit)}" if limit else ""
+    return f"""{PREFIXES}
+
+SELECT DISTINCT ?lp ?lpLabel
+WHERE {{
+  {body}
+}}
+ORDER BY ?lpLabel{tail}"""
+
+
 def alle_lehrplaene(bundesland_keyword: str | None = None, limit: int | None = None) -> str:
     """All curricula, optionally filtered by Bundesland.
 
@@ -309,7 +360,7 @@ WHERE {{
 ORDER BY ?p"""
 
 
-def schulfaecher(bundesland_keyword: str | None = None) -> str:
+def schulfaecher(bundesland_keyword: str | Sequence[str] | None = None) -> str:
     """All Schulfach labels that occur on Lehrpläne.
 
     Verification affordance: integrated subjects ("Natur und Technik",
@@ -317,12 +368,12 @@ def schulfaecher(bundesland_keyword: str | None = None) -> str:
     keyword "physik".
     """
     clauses = [f"?lp lp:{DESCRIPTIVE_PROPERTIES['schulfach']} ?fach .", "?fach rdfs:label ?fachLabel ."]
-    if bundesland_keyword:
-        land = validate_keyword(bundesland_keyword).lower()
+    keywords = [bundesland_keyword] if isinstance(bundesland_keyword, str) else list(bundesland_keyword or [])
+    if keywords:
         clauses += [
             f"?lp lp:{DESCRIPTIVE_PROPERTIES['bundesland']} ?bl .",
             "?bl rdfs:label ?blLabel .",
-            f'FILTER(CONTAINS(LCASE(STR(?blLabel)), "{land}"))',
+            _contains_any("LCASE(STR(?blLabel))", keywords),
         ]
     body = "\n  ".join(clauses)
     return f"""{PREFIXES}

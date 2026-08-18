@@ -21,8 +21,21 @@ def build_parser() -> argparse.ArgumentParser:
         description="Laedt Physik-/Optik-Lehrplaene inkl. Themenbereiche, Kompetenzen und Bildungsstufen "
         "aus dem MEM-Triplestore.",
     )
-    parser.add_argument("--fach", default="physik", help="Stichwort im Schulfach-Label (Default: physik)")
-    parser.add_argument("--bundesland", help="Stichwort im Bundesland-Label, z. B. Sachsen")
+    parser.add_argument(
+        "--fach",
+        action="append",
+        default=[],
+        metavar="STICHWORT",
+        help="Stichwort im Schulfach-Label; mehrfach verwendbar. "
+        "Default: physik + sachunterricht (erfasst auch die Grundschule).",
+    )
+    parser.add_argument(
+        "--bundesland",
+        action="append",
+        default=[],
+        metavar="STICHWORT",
+        help="Stichwort im Bundesland-Label, z. B. Sachsen; mehrfach verwendbar.",
+    )
     parser.add_argument(
         "--stichwort",
         action="append",
@@ -48,7 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_faecher(client: SparqlClient, bundesland: str | None) -> None:
+def _print_faecher(client: SparqlClient, bundesland: str | list[str] | None) -> None:
+    if isinstance(bundesland, str):
+        bundesland = [bundesland]
     for row in client.select(schulfaecher(bundesland)):
         print(f"{row.get('fachLabel', ''):<45} {row['fach']}")
 
@@ -63,14 +78,16 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.list_faecher:
-            _print_faecher(client, args.bundesland)
+            _print_faecher(client, args.bundesland or None)
             return 0
 
+        faecher = args.fach or ["physik", "sachunterricht"]
+        bundeslaender = args.bundesland or None
         result = harvest(
             client,
-            fach=args.fach,
+            fach=faecher,
             stichwoerter=args.stichwoerter or list(OPTIK_STICHWOERTER),
-            bundesland=args.bundesland,
+            bundesland=bundeslaender,
             limit=args.limit,
         )
     except ValidationError as error:
