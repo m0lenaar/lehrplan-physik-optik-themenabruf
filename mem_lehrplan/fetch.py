@@ -199,9 +199,9 @@ def harvest(
         )
 
     diagnostics = {
-        "lehrplan_praedikate": collect_labelled(
-            _select_chunked(client, queries.predicate_audit, lehrplan_uris), "p", "pLabel"
-        ),
+        # "lehrplan_praedikate": collect_labelled(
+        #     _select_chunked(client, queries.predicate_audit, lehrplan_uris), "p", "pLabel"
+        # ),
         "klassen_ohne_rolle": sorted(
             {info.uri for info in index.values() if not info.rollen}
         ),
